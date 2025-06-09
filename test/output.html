@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CST解析树可视化工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            /* 树结构连接线：更纤细的1px边框，减少层级间距 */
+            .tree-line {
+                @apply border-l border-gray-200 ml-3 pl-3;
+            }
+            /* 展开/折叠按钮：更低调的图标颜色，无动画 */
+            .node-expand {
+                @apply cursor-pointer text-gray-500 hover:text-blue-600 transition-none;
+            }
+            /* 节点内容：更小内边距、圆角，更轻量的悬停反馈 */
+            .node-content {
+                @apply flex items-center py-1 px-1 rounded-sm transition-none;
+            }
+            .node-content:hover {
+                @apply bg-gray-50; /* 极浅的悬停背景 */
+            }
+            /* 激活状态：柔和的蓝色系，取消加粗 */
+            .node-active {
+                @apply bg-blue-50 text-blue-600 font-normal;
+            }
+            /* 节点值：更紧凑的间距 */
+            .node-value {
+                @apply ml-1;
+            }
+            /* 语法类型：更清晰的深灰色 */
+            .syntax-type {
+                @apply font-medium text-gray-800;
+            }
+            /* 语法值：柔和的次色 */
+            .syntax-value {
+                @apply text-gray-600 ml-1;
+            }
+            /* 语法分隔符：更浅的分隔线 */
+            .syntax-marker {
+                @apply text-gray-300 mx-1;
+            }
+            /* 树标题：更小字号，更轻的字体 */
+            .tree-header {
+                @apply text-lg font-semibold text-gray-900 mb-3 flex items-center;
+            }
+            /* 工具条：更紧凑的按钮间距 */
+            .toolbar {
+                @apply flex flex-wrap gap-1 mb-3;
+            }
+            /* 工具按钮：更小尺寸，经典蓝主色 */
+            .tool-btn {
+                @apply px-2 py-1 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-none flex items-center gap-1 text-sm;
+            }
+            /* 轮廓工具按钮：细边框，无动画 */
+            .tool-btn-outline {
+                @apply px-2 py-1 border border-blue-600 text-blue-600 rounded-sm hover:bg-blue-50 transition-none flex items-center gap-1 text-sm;
+            }
+            /* JSON视图：更紧凑的代码块 */
+            .json-view {
+                @apply bg-gray-50 p-3 rounded-sm overflow-x-auto text-xs font-mono mt-3;
+            }
+            /* JSON关键值：保持经典颜色区分 */
+            .json-key {
+                @apply text-blue-600;
+            }
+            .json-value {
+                @apply text-green-600;
+            }
+            .json-string {
+                @apply text-yellow-600;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-inter text-neutral max-w-7xl mx-auto px-4 py-6">
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div class="tree-header">
+            <i class="fa-solid fa-code-tree mr-2"></i>
+            <span>具体语法树 (CST) 可视化</span>
+        </div>
+
+        <div class="toolbar">
+            <button id="expandAll" class="tool-btn">
+                <i class="fa-solid fa-plus-square"></i> 全部展开
+            </button>
+            <button id="collapseAll" class="tool-btn">
+                <i class="fa-solid fa-minus-square"></i> 全部折叠
+            </button>
+            <button id="copyTree" class="tool-btn">
+                <i class="fa-solid fa-copy"></i> 复制树结构
+            </button>
+            <button id="toggleJson" class="tool-btn-outline">
+                <i class="fa-solid fa-code"></i> 显示JSON
+            </button>
+        </div>
+
+        <div id="treeContainer" class="mt-6">
+            <!-- 树状图将在这里生成 -->
+        </div>
+
+        <div id="jsonView" class="json-view hidden">
+            <!-- JSON内容将在这里显示 -->
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-semibold mb-3 flex items-center">
+            <i class="fa-solid fa-file-code mr-2"></i>
+            输入CST文本
+        </h3>
+        <textarea id="cstInput"
+            class="w-full h-40 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+            placeholder="请粘贴CST树状图文本...">ConcreteSyntaxTree
+            └── SyntaxParseBegin
+                └── StatementSequence
+                    ├── Statement
+                    │   ├── FunctionImplementation
+                    │   │   ├── TypeValue
+                    │   │   │   └── Int
+                    │   │   ├── IdentifierValue
+                    │   │   │   └── Identifier
+                    │   │   ├── LeftBracket
+                    │   │   ├── ArgDeclearation
+                    │   │   │   ├── TypeValue
+                    │   │   │   │   └── Int
+                    │   │   │   └── IdentifierValue
+                    │   │   │       └── Identifier
+                    │   │   ├── RightBracket
+                    │   │   ├── LeftBrace
+                    │   │   ├── Statement
+                    │   │   │   ├── ExpressionStament
+                    │   │   │   │   ├── FunctionCall
+                    │   │   │   │   │   ├── IdentifierValue
+                    │   │   │   │   │   │   └── Identifier
+                    │   │   │   │   │   ├── LeftBracket
+                    │   │   │   │   │   ├── Arg
+                    │   │   │   │   │   │   └── RightValue
+                    │   │   │   │   │   │       └── RightValueValue
+                    │   │   │   │   │   │           └── String
+                    │   │   │   │   │   └── RightBracket
+                    │   │   │   │   └── Semicolon
+                    │   │   │   └── Statement
+                    │   │   │       ├── FunctionReturn
+                    │   │   │       │   ├── Return
+                    │   │   │       │   ├── ValueExpression
+                    │   │   │       │   │   └── RightValue
+                    │   │   │       │   │       └── RightValueValue
+                    │   │   │       │   │           └── Number
+                    │   │   │       │   └── Semicolon
+                    │   │   │       └── EmptyStatementSequence
+                    │   │   │           └── Empty
+                    │   │   └── RightBrace
+                    │   └── EmptyStatementSequence
+                    │       └── Empty
+                    └── End</textarea>
+        <button id="parseTree"
+            class="mt-3 px-4 py-2 bg-secondary text-white rounded-md hover:bg-secondary/90 transition-all duration-200 flex items-center">
+            <i class="fa-solid fa-magic mr-1"></i> 解析树状图
+        </button>
+    </div>
+
+    <script>
+        // 映射表，用于美化节点显示
+        const templateNameMap = {
+            "SyntaxParseBegin": "解析开始(๑•̀ㅂ•́)و",
+            "SyntaxParseEnd": "解析结束(≧∇≦)ﾉ",
+            "FunctionImplementation": "函数定义✨",
+            "Operation": "操作符→",
+            "Empty": "空哒>w<",
+            "EmptyStatementSequence": "空语句序列0w0",
+            "EmptyArgDeclearationSequence": "空参数声明awa",
+            "FunctionCall": "函数调用(๑•̀ㅂ•́)",
+            "FunctionReturn": "返回语句owo",
+            "BracketExpression": "括号表达式awa",
+            "ValueExpression": "值表达式0w0",
+            "ExpressionStament": "表达式语句(๑• . •๑)",
+            "VariableDeclearation": "变量声明>w<",
+            "VariableImplementation": "变量实现awa",
+            "FunctionDeclearation": "函数声明0w0",
+            "BraceStament": "大括号语句(´,,•ω•,,)♡",
+            "ArgDeclearationSequence": "参数声明序列>w<",
+            "ArgDeclearation": "参数声明awa",
+            "ArgSequence": "参数序列0w0",
+            "Arg": "参数(๑˃̵ᴗ˂̵)",
+            "Statement": "语句owo",
+            "StatementSequence": "语句序列awa",
+            "TypeValue": "类型值>w<",
+            "LeftValue": "左值表达式(՞˶･֊･˶՞)",
+            "RightValue": "右值表达式(๑•́ ₃ •̀๑)",
+            "RightValueValue": "右值内容awa",
+            "IdentifierValue": "标识符值>w<",
+            "Identifier": "标识符0w0",
+            "Int": "整数类型(๑•̀ㅂ•́)",
+            "LeftBracket": "左括号(=´ω`=)",
+            "RightBracket": "右括号(,,・ω・,,)",
+            "LeftBrace": "左大括号qwq",
+            "RightBrace": "右大括号qwq",
+            "Semicolon": "分号(๑•̀ㅂ•́)",
+            "Return": "返回关键字awa",
+            "Number": "数字>w<",
+            "String": "字符串0w0",
+            "End": "结束符(๑˃̵ᴗ˂̵)",
+            "Empty": "是空哒！",
+            "Assign": "赋值操作(✧ω✧)",
+            "OperatorValue": "操作符(๑•̀ㅂ•́)و",
+            "Add": "加法运算(≧∇≦)",
+            "Les": "小于比较(>_<)"
+        };
+
+        // 解析CST文本并构建树结构（修复层级解析）
+        function parseCST(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length === 0) return { name: 'Root', children: [] };
+
+            const tree = { name: lines[0].trim(), children: [], level: -1 };
+            const stack = [tree];
+            let prevLevel = -1;
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trimEnd();
+                if (!line) continue;
+
+                // 精确计算层级（处理│和空格）
+                const indentMatch = line.match(/^(?:│   |    )+/);
+                const level = indentMatch ? Math.floor(indentMatch[0].length / 4) : 0;
+
+                // 调整父节点层级
+                while (stack.length > 1 && stack[stack.length - 1].level >= level) {
+                    stack.pop();
+                }
+
+                const parent = stack[stack.length - 1];
+                const nodeName = line.replace(/^.*?[└─├]── /, ''); // 提取节点名
+
+                const node = {
+                    name: nodeName,
+                    children: [],
+                    level: level
+                };
+
+                parent.children.push(node);
+                stack.push(node);
+                prevLevel = level;
+            }
+
+            return tree;
+        }
+
+        // 渲染树状图
+        function renderTree(tree, container, parentElement = null) {
+            const nodeId = `node-${Math.random().toString(36).substr(2, 9)}`;
+            const isLeaf = tree.children.length === 0;
+
+            // 创建节点容器
+            const nodeContainer = document.createElement('div');
+            nodeContainer.className = 'node-container relative';
+
+            // 创建节点内容
+            const nodeContent = document.createElement('div');
+            nodeContent.className = 'node-content';
+            nodeContent.id = nodeId;
+
+            // 添加展开/折叠按钮（如果有子节点）
+            if (!isLeaf) {
+                const expandIcon = document.createElement('span');
+                expandIcon.className = 'node-expand mr-1';
+                expandIcon.innerHTML = '<i class="fa-solid fa-plus-square"></i>';
+                expandIcon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const icon = expandIcon.querySelector('i');
+                    const childrenContainer = nodeContent.nextElementSibling;
+
+                    if (icon.classList.contains('fa-plus-square')) {
+                        icon.classList.replace('fa-plus-square', 'fa-minus-square');
+                        childrenContainer.classList.remove('hidden');
+                    } else {
+                        icon.classList.replace('fa-minus-square', 'fa-plus-square');
+                        childrenContainer.classList.add('hidden');
+                    }
+                });
+                nodeContent.appendChild(expandIcon);
+            } else {
+                const emptySpace = document.createElement('span');
+                emptySpace.className = 'mr-3 w-4 inline-block';
+                nodeContent.appendChild(emptySpace);
+            }
+
+            // 添加节点名称
+            const nodeNameSpan = document.createElement('span');
+            nodeNameSpan.className = 'syntax-type';
+            const displayName = templateNameMap[tree.name] || tree.name;
+            nodeNameSpan.textContent = displayName;
+            nodeContent.appendChild(nodeNameSpan);
+
+            // 添加点击高亮
+            nodeContent.addEventListener('click', () => {
+                document.querySelectorAll('.node-active').forEach(el => {
+                    el.classList.remove('node-active');
+                });
+                nodeContent.classList.add('node-active');
+
+                // 滚动到视图
+                nodeContent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // 更新JSON视图
+                updateJsonView(tree);
+            });
+
+            // 如果有子节点，递归渲染
+            if (!isLeaf) {
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'tree-line hidden'; // 默认折叠
+
+                tree.children.forEach(child => {
+                    renderTree(child, childrenContainer, nodeContainer);
+                });
+
+                container.appendChild(nodeContent);
+                container.appendChild(childrenContainer);
+            } else {
+                container.appendChild(nodeContent);
+            }
+
+            // 为父节点添加垂直连接线（非根节点）
+            if (parentElement && tree.level > 0) {
+                const lineTop = nodeContent.getBoundingClientRect().top + window.scrollY + 10;
+                const lineHeight = nodeContainer.offsetHeight - 20;
+                const line = document.createElement('div');
+                line.className = 'absolute left-0 top-1/2 transform -translate-y-1/2 h-full border-l-2 border-gray-300';
+                line.style.height = `${lineHeight}px`;
+                parentElement.appendChild(line);
+            }
+
+            return nodeId;
+        }
+
+        // 展开所有节点
+        function expandAll() {
+            document.querySelectorAll('.node-expand i.fa-plus-square').forEach(icon => {
+                icon.classList.replace('fa-plus-square', 'fa-minus-square');
+                icon.closest('.node-content').nextElementSibling.classList.remove('hidden');
+            });
+        }
+
+        // 折叠所有节点
+        function collapseAll() {
+            document.querySelectorAll('.node-expand i.fa-minus-square').forEach(icon => {
+                icon.classList.replace('fa-minus-square', 'fa-plus-square');
+                icon.closest('.node-content').nextElementSibling.classList.add('hidden');
+            });
+        }
+
+        // 复制树结构
+        function copyTree() {
+            const textToCopy = document.getElementById('cstInput').value;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                showNotification('树结构已复制到剪贴板!');
+            }).catch(err => {
+                showNotification('复制失败，请手动复制', true);
+            });
+        }
+
+        // 显示通知
+        function showNotification(message, isError = false) {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-4 py-2 rounded-md shadow-lg z-50 transition-all duration-300 ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // 更新JSON视图
+        function updateJsonView(node) {
+            const jsonView = document.getElementById('jsonView');
+            jsonView.innerHTML = `<pre>${JSON.stringify(
+                { name: node.name, children: node.children.map(c => ({ name: c.name })) },
+                null, 2
+            ).replace(/"name"/g, '<span class="json-key">"name"</span>')
+                .replace(/"children"/g, '<span class="json-key">"children"</span>')
+                .replace(/"([^"]+)":/g, '"$1":')}</pre>`;
+        }
+
+        // 解析并渲染树
+        function parseAndRenderTree() {
+            const cstInput = document.getElementById('cstInput').value;
+            const treeContainer = document.getElementById('treeContainer');
+            treeContainer.innerHTML = '';
+
+            try {
+                const tree = parseCST(cstInput);
+                renderTree(tree, treeContainer);
+                showNotification('树状图解析成功!');
+            } catch (error) {
+                treeContainer.innerHTML = `<div class="text-red-500">解析失败: ${error.message}</div>`;
+                showNotification('解析失败，请检查输入格式', true);
+            }
+        }
+
+        // 切换JSON视图
+        function toggleJsonView() {
+            const jsonView = document.getElementById('jsonView');
+            jsonView.classList.toggle('hidden');
+            document.getElementById('toggleJson').querySelector('i').classList.toggle('fa-code');
+            document.getElementById('toggleJson').querySelector('i').classList.toggle('fa-eye-slash');
+            document.getElementById('toggleJson').textContent = jsonView.classList.contains('hidden')
+                ? '<i class="fa-solid fa-code"></i> 显示JSON'
+                : '<i class="fa-solid fa-eye-slash"></i> 隐藏JSON';
+        }
+
+        // 初始化事件监听
+        function initEventListeners() {
+            document.getElementById('expandAll').addEventListener('click', expandAll);
+            document.getElementById('collapseAll').addEventListener('click', collapseAll);
+            document.getElementById('copyTree').addEventListener('click', copyTree);
+            document.getElementById('parseTree').addEventListener('click', parseAndRenderTree);
+            document.getElementById('toggleJson').addEventListener('click', toggleJsonView);
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initEventListeners();
+            parseAndRenderTree();
+        });
+    </script>
+</body>
+
+</html>
